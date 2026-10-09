@@ -135,6 +135,7 @@ Both have the same safety features:
 claude-sdk-run --prompt-file task.md --out result.md --max-budget-usd 3
 claude-sdk-run --prompt "Say hi" --dry-run                  # spends nothing
 claude-sdk-run --prompt "..." --json --out result.json      # includes cost and session ID
+claude-sdk-run --resume <session-id> --prompt "Write the result now." --out result.md   # continue a run
 ```
 
 <details>
@@ -157,9 +158,11 @@ claude-sdk-run --prompt "..." --json --out result.json      # includes cost and 
 | `--json` | JSON output (result, cost, session ID, usage) | text |
 | `--verbose` | Show progress while it runs | off |
 | `--dry-run` | Show the settings, spend nothing | off |
+| `--resume <session-id>` | Continue an earlier run with a new prompt | new session |
 
 - It starts Claude with a clean environment: Claude/Anthropic variables from the session that launched it are not passed on.
 - Exit code: `0` on success, `1` on an error result.
+- Every exit prints the session ID, including when a run stops at `--max-turns` or the budget cap. Pass it to `--resume` to finish the work instead of paying to start over.
 </details>
 
 ### `claude-api-run` (Claude Code CLI)

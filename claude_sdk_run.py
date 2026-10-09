@@ -9,6 +9,7 @@ Usage (via claude-sdk-run.cmd / claude-sdk-run.ps1 / claude-sdk-run, which use t
   claude-sdk-run --prompt-file task.md --out result.md --model claude-opus-5-5 --effort high --max-budget-usd 3 --cwd C:/repo
   claude-sdk-run --prompt "..." --json --out result.json          # JSON: result, cost, session id, usage
   claude-sdk-run --prompt "..." --dry-run                          # show the options, spend nothing
+  claude-sdk-run --resume <session-id> --prompt "Write the deliverable now." --out result.md   # continue a run
 The key never appears in output, logs or arguments.
 """
 from __future__ import annotations
@@ -82,6 +83,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--json", action="store_true")
     p.add_argument("--verbose", action="store_true", help="stream assistant text to stderr")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--resume", metavar="SESSION_ID",
+                   help="continue an earlier session (its id is printed on every exit, including turn/budget caps)")
     a = p.parse_args(argv)
     if a.prompt_file:
         a.text = Path(a.prompt_file).read_text(encoding="utf-8-sig")
@@ -97,7 +100,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 async def run(a: argparse.Namespace) -> int:
-    from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, ResultMessage, TextBlock, query
+    from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, ResultMessage, SystemMessage, TextBlock, query
 
     system_prompt: dict = {"type": "preset", "preset": "claude_code"}
     if a.append_system_prompt:
@@ -114,6 +117,7 @@ async def run(a: argparse.Namespace) -> int:
         allowed_tools=[t.strip() for t in a.allowed_tools.split(",")] if a.allowed_tools else [],
         system_prompt=system_prompt,
         setting_sources=sources,
+        resume=a.resume,
     )
     if a.dry_run:
         print(f"would run in {a.cwd}: model={a.model} effort={a.effort} budget=${a.max_budget_usd} "
@@ -123,15 +127,24 @@ async def run(a: argparse.Namespace) -> int:
         return 0
 
     result: ResultMessage | None = None
-    async for message in query(prompt=a.text, options=options):
-        if isinstance(message, AssistantMessage) and a.verbose:
-            for block in message.content:
-                if isinstance(block, TextBlock):
-                    print(block.text, file=sys.stderr, flush=True)
-        elif isinstance(message, ResultMessage):
-            result = message
+    session = a.resume
+    try:
+        async for message in query(prompt=a.text, options=options):
+            if isinstance(message, SystemMessage) and message.subtype == "init":
+                session = message.data.get("session_id") or session
+            elif isinstance(message, AssistantMessage) and a.verbose:
+                for block in message.content:
+                    if isinstance(block, TextBlock):
+                        print(block.text, file=sys.stderr, flush=True)
+            elif isinstance(message, ResultMessage):
+                result = message
+    except Exception as exc:  # turn/budget caps surface as an exception after (or instead of) the result
+        if result is None:
+            print(f"claude-sdk-run: {type(exc).__name__}: {exc}", file=sys.stderr)
+            print(f"claude-sdk-run: session {session} (continue with --resume {session})", file=sys.stderr)
+            return 1
     if result is None:
-        print("claude-sdk-run: no result message received", file=sys.stderr)
+        print(f"claude-sdk-run: no result message received; session {session}", file=sys.stderr)
         return 1
 
     if a.json:
