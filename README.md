@@ -160,9 +160,10 @@ claude-sdk-run --resume <session-id> --prompt "Write the result now." --out resu
 | `--dry-run` | Show the settings, spend nothing | off |
 | `--resume <session-id>` | Continue an earlier run with a new prompt | new session |
 
+- 📎 **Files and images:** name them in your prompt (`"Read screenshots/bug.png and fix it"`). Claude opens code, images and PDFs itself. Files outside `--cwd` need `--add-dir <folder>`, because a headless run can't ask permission to read them.
 - It starts Claude with a clean environment: Claude/Anthropic variables from the session that launched it are not passed on.
 - Exit code: `0` on success, `1` on an error result.
-- Every exit prints the session ID, including when a run stops at `--max-turns` or the budget cap. Pass it to `--resume` to finish the work instead of paying to start over.
+- Every run prints its session ID, including when it stops at `--max-turns` or the budget cap. Pass it to `--resume` to finish the work instead of paying to start over. Use the same `--cwd` as the first run.
 </details>
 
 ### `claude-api-run` (Claude Code CLI)

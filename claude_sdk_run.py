@@ -121,7 +121,8 @@ async def run(a: argparse.Namespace) -> int:
     )
     if a.dry_run:
         print(f"would run in {a.cwd}: model={a.model} effort={a.effort} budget=${a.max_budget_usd} "
-              f"turns={a.max_turns} mode={a.permission_mode} settings={sources or 'none'} add_dirs={a.add_dir}")
+              f"turns={a.max_turns} mode={a.permission_mode} settings={sources or 'none'} add_dirs={a.add_dir} "
+              f"resume={a.resume or 'no'}")
         print(f"prompt: {len(a.text)} chars; key set: {bool(os.environ.get('ANTHROPIC_API_KEY'))}; "
               f"workspace header: {bool(os.environ.get('ANTHROPIC_CUSTOM_HEADERS'))}")
         return 0
@@ -141,10 +142,13 @@ async def run(a: argparse.Namespace) -> int:
     except Exception as exc:  # turn/budget caps surface as an exception after (or instead of) the result
         if result is None:
             print(f"claude-sdk-run: {type(exc).__name__}: {exc}", file=sys.stderr)
-            print(f"claude-sdk-run: session {session} (continue with --resume {session})", file=sys.stderr)
+            if session:
+                print(f"claude-sdk-run: session {session} (continue with --resume {session})", file=sys.stderr)
+            else:
+                print("claude-sdk-run: the run failed before a session started; nothing to resume", file=sys.stderr)
             return 1
     if result is None:
-        print(f"claude-sdk-run: no result message received; session {session}", file=sys.stderr)
+        print(f"claude-sdk-run: no result message received; session {session or 'none'}", file=sys.stderr)
         return 1
 
     if a.json:
