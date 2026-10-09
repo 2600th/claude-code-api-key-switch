@@ -118,6 +118,8 @@ async def run(a: argparse.Namespace) -> int:
         system_prompt=system_prompt,
         setting_sources=sources,
         resume=a.resume,
+        # Image reads and large tool results exceed the SDK's 1 MB default and abort the run.
+        max_buffer_size=32 * 1024 * 1024,
     )
     if a.dry_run:
         print(f"would run in {a.cwd}: model={a.model} effort={a.effort} budget=${a.max_budget_usd} "
