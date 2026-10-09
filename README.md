@@ -95,6 +95,7 @@ Since October 2026, Max and Team plans include monthly credits for the Claude AP
 
 | Command | Paid by the credits? |
 |---|---|
+| `claude-sdk-run` (headless, Agent SDK) | ✅ Yes, also covers **promotional credits** that list "Agent SDK" |
 | `claude-api-run` (headless `claude -p`) | ✅ Yes |
 | `claude-api` (interactive chat) | ❌ No. Uses credit you bought. |
 
@@ -132,6 +133,7 @@ claude-api-run -PromptFile task.md -OutFile result.md -MaxBudgetUsd 3
 | `-PermissionMode` | `-p` | What Claude may do without asking | `acceptEdits` |
 | `-Cwd C:\repo` | `-C /c/repo` | Folder to work in | current folder |
 | `-Json` | `-j` | JSON output (includes cost and session ID) | text |
+| `-Effort` | `-e` | Reasoning effort: `low`, `medium`, `high`, `xhigh`, `max` | CLI default |
 | `-Bare` | `-B` | Skip CLAUDE.md, hooks and plugins (cheaper start) | off |
 | `-AddDir`, `-AllowedTools`, `-AppendSystemPrompt` | — | Passed to `claude` | — |
 | `-DryRun` | — | Show the command, spend nothing | off |
@@ -154,6 +156,23 @@ claude-api-run -m claude-sonnet-5-5 -b 3 -o result.md < task.md
 - `-Bare` cuts the start-up cost. Put all the context the task needs in the prompt.
 - **Use full model IDs**: `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-4-5-20251001`. Short names like `haiku` can point to older models.
 </details>
+
+---
+
+## 🧩 Headless runs on promotional credits: `claude-sdk-run`
+
+Some promotional API credits cover **"Agent SDK, API, Batch API, Playground"** but **not "Claude Code"**. Check Console → Billing → Promotional credits → "Applies to". `claude-api-run` drives the Claude Code CLI, so those credits don't cover it and you get "Credit balance is too low". `claude-sdk-run` runs the same tools through the official **Claude Agent SDK**, which bills as Agent SDK. It also works when you start it from inside an IDE or the desktop app, because it removes inherited session variables first.
+
+```powershell
+claude-sdk-run --prompt-file task.md --out result.md --model claude-opus-5-5 --effort high --max-budget-usd 3 --cwd C:\repo
+claude-sdk-run --prompt "..." --json --out result.json     # result, cost, session id, usage
+claude-sdk-run --prompt "..." --dry-run                     # spends nothing
+```
+
+- **Setup:** `setup.cmd` creates `.venv` with `claude-agent-sdk` (pinned in `requirements-sdk.txt`). It needs Python 3.10+, and `-NoSdk` skips it. To do it by hand: `python -m venv .venv` then `.venv\Scripts\pip install -r requirements-sdk.txt`.
+- **Options:** `--model`, `--effort`, `--max-budget-usd` (default 5), `--max-turns` (40), `--permission-mode` (acceptEdits), `--cwd`, `--add-dir` (repeatable), `--allowed-tools a,b`, `--append-system-prompt`, `--setting-sources` (default `project,local`; `user,project,local` or `none`), `--json`, `--verbose` (streams progress to stderr), `--dry-run`.
+- **Cost:** measured 2026-10-09, a one-turn Haiku run cost **$0.032**, against $0.082 through `claude-api-run`.
+- The exit code is 0 on success and 1 on an error result.
 
 ---
 
@@ -241,6 +260,8 @@ No. Conversations are saved on your computer, so `claude-api --continue` picks u
 | File | What it is |
 |---|---|
 | `setup.cmd` | **Start here (Windows).** Double-click to set up. |
+| `claude-sdk-run` | Headless runs through the Agent SDK. Promotional credits that list "Agent SDK" apply. Needs `.venv` from setup. |
+| `claude_sdk_run.py`, `requirements-sdk.txt` | The Agent SDK runner and its pinned dependency. |
 | `claude-api-run` | Headless runs with a spending cap. Max/Team credits apply. |
 | `claude-api` | Interactive Claude Code on your API key. |
 | `claude-api-check` | Check your key and setup. |

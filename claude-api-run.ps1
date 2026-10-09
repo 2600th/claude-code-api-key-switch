@@ -6,6 +6,7 @@
 .EXAMPLE
   Get-Content task.md | claude-api-run -Model claude-haiku-4-5-20251001 -Cwd C:\path\to\repo
 .NOTES
+  -Effort low|medium|high|xhigh|max sets the reasoning effort (claude --effort); omitted = the CLI default.
   Defaults: model claude-sonnet-5-5, budget $5, 40 turns, permission mode acceptEdits (edits allowed, other tools
   follow your normal allow-lists). Use -PermissionMode bypassPermissions only for trusted, sandboxed work.
   The exit code is claude's. With -Json the output is the JSON result (it includes cost and session id).
@@ -24,6 +25,8 @@ param(
     [int]$MaxTurns = 40,
     [ValidateSet('acceptEdits', 'auto', 'bypassPermissions', 'manual', 'dontAsk', 'plan')]
     [string]$PermissionMode = 'acceptEdits',
+    [ValidateSet('low', 'medium', 'high', 'xhigh', 'max')]
+    [string]$Effort,
     [string]$Cwd = (Get-Location).Path,
     [string[]]$AddDir = @(),
     [string]$AllowedTools,
@@ -53,6 +56,7 @@ end {
     $argv = @('-p', '--model', $Model, '--max-budget-usd', $MaxBudgetUsd.ToString([Globalization.CultureInfo]::InvariantCulture), '--max-turns', "$MaxTurns",
               '--permission-mode', $PermissionMode, '--output-format', ($(if ($Json) { 'json' } else { 'text' })))
     foreach ($d in $AddDir) { $argv += @('--add-dir', $d) }
+    if ($Effort) { $argv += @('--effort', $Effort) }
     if ($Bare) { $argv += '--bare' }
     if ($AllowedTools) { $argv += @('--allowedTools', $AllowedTools) }
     if ($AppendSystemPrompt) { $argv += @('--append-system-prompt', $AppendSystemPrompt) }

@@ -4,11 +4,11 @@
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$here/lib.sh"
-model=claude-sonnet-5-5 budget=5 bare="" turns=40 mode=acceptEdits out="" cwd="$PWD" fmt=text
-usage() { echo 'Usage: claude-api-run [-B] [-m model] [-b budget_usd] [-t max_turns] [-p permission_mode] [-o out_file] [-C cwd] [-j] < task.md'; }
-while getopts "hm:b:t:p:o:C:jB" o; do case "$o" in
+model=claude-sonnet-5-5 budget=5 bare="" effort="" turns=40 mode=acceptEdits out="" cwd="$PWD" fmt=text
+usage() { echo 'Usage: claude-api-run [-B] [-e effort] [-m model] [-b budget_usd] [-t max_turns] [-p permission_mode] [-o out_file] [-C cwd] [-j] < task.md'; }
+while getopts "hm:b:t:p:o:C:jBe:" o; do case "$o" in
   m) model=$OPTARG ;; b) budget=$OPTARG ;; t) turns=$OPTARG ;; p) mode=$OPTARG ;;
-  o) out=$OPTARG ;; C) cwd=$OPTARG ;; j) fmt=json ;; B) bare=--bare ;; h) usage; exit 0 ;; *) usage >&2; exit 2 ;; esac; done
+  o) out=$OPTARG ;; C) cwd=$OPTARG ;; j) fmt=json ;; B) bare=--bare ;; e) effort="--effort $OPTARG" ;; h) usage; exit 0 ;; *) usage >&2; exit 2 ;; esac; done
 [ ! -t 0 ] || { echo 'claude-api-run: pipe a prompt on stdin or redirect a prompt file' >&2; exit 1; }
 if [ -n "$out" ]; then
   case "$out" in /*|[A-Za-z]:[\\/]*) ;; *) out="$PWD/$out" ;; esac
@@ -16,7 +16,7 @@ fi
 claude_api_env
 cd "$cwd"
 if [ -n "$out" ]; then
-  claude -p $bare --model "$model" --max-budget-usd "$budget" --max-turns "$turns" --permission-mode "$mode" --output-format "$fmt" > "$out"
+  claude -p $bare $effort --model "$model" --max-budget-usd "$budget" --max-turns "$turns" --permission-mode "$mode" --output-format "$fmt" > "$out"
 else
-  exec claude -p $bare --model "$model" --max-budget-usd "$budget" --max-turns "$turns" --permission-mode "$mode" --output-format "$fmt"
+  exec claude -p $bare $effort --model "$model" --max-budget-usd "$budget" --max-turns "$turns" --permission-mode "$mode" --output-format "$fmt"
 fi

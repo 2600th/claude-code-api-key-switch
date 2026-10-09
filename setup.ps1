@@ -5,6 +5,8 @@
   Skip adding this folder to the user Path.
 .PARAMETER NoCheck
   Skip the online checks.
+.PARAMETER NoSdk
+  Skip creating .venv with the Claude Agent SDK (needed only for claude-sdk-run).
 .PARAMETER ApiKey
   For automation in isolated test folders; normally the key is requested securely.
 .PARAMETER WorkspaceId
@@ -14,6 +16,7 @@
 param(
     [switch]$NoPath,
     [switch]$NoCheck,
+    [switch]$NoSdk,
     [Parameter(DontShow = $true)] [string]$ApiKey,
     [Parameter(DontShow = $true)] [string]$WorkspaceId
 )
@@ -78,6 +81,20 @@ if ($NoPath) { Write-Output 'User Path update skipped.' } else {
         Write-Output 'Added this folder to your PATH.'
     }
 }
+if ($NoSdk) { Write-Output 'Agent SDK setup skipped.' } else {
+    # claude-sdk-run uses the official Agent SDK, which promotional API credits usually cover (Claude Code CLI usage often isn't).
+    $venvPy = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
+    $py = Get-Command python -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (Test-Path -LiteralPath $venvPy) { Write-Output 'Agent SDK environment already exists (.venv).' }
+    elseif (-not $py) { Write-Output 'Python 3.10+ not found: skipping claude-sdk-run setup (install Python, then rerun setup).' }
+    else {
+        & $py.Source -m venv (Join-Path $PSScriptRoot '.venv')
+        & $venvPy -m pip install --quiet --disable-pip-version-check -r (Join-Path $PSScriptRoot 'requirements-sdk.txt')
+        if ($LASTEXITCODE -eq 0) { Write-Output 'Installed the Claude Agent SDK into .venv (for claude-sdk-run).' }
+        else { Write-Output 'Agent SDK install failed; claude-api-run still works.' }
+    }
+}
+
 $code = 0
 if ($NoCheck) { Write-Output 'Online checks skipped.' } else {
     & (Join-Path $PSScriptRoot 'claude-api-check.ps1') -Online
@@ -85,6 +102,7 @@ if ($NoCheck) { Write-Output 'Online checks skipped.' } else {
 }
 Write-Output ''
 Write-Output 'Next: open a NEW terminal, go to your project folder, and type one of:'
-Write-Output '  claude-api-run -Prompt "Say hi" -MaxBudgetUsd 1   (headless; Max/Team API credits apply)'
+Write-Output '  claude-sdk-run --prompt "Say hi" --max-budget-usd 1  (headless via Agent SDK; promotional API credits apply)'
+Write-Output '  claude-api-run -Prompt "Say hi" -MaxBudgetUsd 1   (headless via Claude Code CLI; Max/Team API credits apply)'
 Write-Output '  claude-api --continue                              (continue your chat; uses credit you bought)'
 exit $code

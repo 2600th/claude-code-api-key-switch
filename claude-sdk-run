@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Headless Claude subagent via the Agent SDK (bills as Agent SDK; see claude_sdk_run.py --help).
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+py="$here/.venv/Scripts/python.exe"; [ -x "$py" ] || py="$here/.venv/bin/python"
+[ -x "$py" ] || { echo "claude-sdk-run: run setup first (creates .venv with the Agent SDK)" >&2; exit 1; }
+exec "$py" "$here/claude_sdk_run.py" "$@"

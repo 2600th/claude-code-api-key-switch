@@ -13,3 +13,6 @@ result.json
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Agent SDK virtual environment (created by setup)
+.venv/
