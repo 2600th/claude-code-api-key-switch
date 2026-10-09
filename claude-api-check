@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$here/lib.sh"
+online=false ready=true key="" ws=""
+case "${1:-}" in --online) online=true ;; '') ;; *) echo 'Usage: claude-api-check [--online]' >&2; exit 2 ;; esac
+if key="$(claude_api_key)"; then
+  printf 'key: found (%s chars, prefix ok)\n' "${#key}"
+  ws="$(claude_workspace_id)"
+else
+  ready=false
+fi
+if cli="$(command -v claude)"; then
+  printf 'claude CLI: %s\n' "$cli"
+else
+  echo 'claude CLI: NOT FOUND - install Claude Code first: https://code.claude.com/docs'
+  ready=false
+fi
+if [ -n "$ws" ]; then
+  printf 'workspace: %s\n' "$ws"
+elif [[ "$key" == sk-ant-usr* ]]; then
+  echo 'workspace: MISSING (user-scoped key needs ANTHROPIC_WORKSPACE_ID)'
+  ready=false
+elif [ -n "$key" ]; then
+  echo 'workspace: not needed (workspace-scoped key)'
+else
+  echo 'workspace: not checked (key unavailable)'
+fi
+if $online && [ -n "$key" ]; then
+  if ! command -v curl >/dev/null 2>&1; then
+    echo 'api: FAILED - curl not found'
+    ready=false
+  elif status="$(
+    {
+      printf 'x-api-key: %s\nanthropic-version: 2023-06-01\n' "$key"
+      if [ -n "$ws" ]; then printf 'anthropic-workspace-id: %s\n' "$ws"; fi
+    } | curl -sS --connect-timeout 15 --max-time 30 -H @- -o /dev/null -w '%{http_code}' 'https://api.anthropic.com/v1/models?limit=5'
+  )"; then
+    case "$status" in
+      2??) echo "api: OK (HTTP $status)" ;;
+      *) echo "api: FAILED (HTTP $status)"; ready=false ;;
+    esac
+  else
+    echo 'api: FAILED - curl could not complete the request (see error above)'
+    ready=false
+  fi
+fi
+if $ready; then echo "READY: use claude-api or claude-api-run in any project folder."; exit 0; fi
+echo 'NOT READY: fix the lines above.'
+exit 1

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Git Bash / WSL: run Claude Code billed to the API key. All arguments pass through to `claude`.
+#   claude-api            new session      claude-api --continue    continue the last conversation
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$here/lib.sh"
+claude_api_env
+exec claude "$@"

@@ -1,0 +1,15 @@
+# Your private API key. Never commit it.
+.env
+.env.*
+.env.claude
+# ...but do share the empty template (this line must stay below the ones above)
+!.env.claude.example
+
+# Output from test runs
+result.md
+result.json
+
+# OS clutter
+.DS_Store
+Thumbs.db
+desktop.ini
