@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-KEEP = {"CLAUDE_CONFIG_DIR"}
+KEEP = {"CLAUDE_CONFIG_DIR", "CLAUDE_CODE_GIT_BASH_PATH"}
 
 
 def read_env_file(path: Path) -> tuple[str, str | None]:
@@ -44,7 +44,7 @@ def read_env_file(path: Path) -> tuple[str, str | None]:
             key = line.strip('"\'')
     if not key:
         sys.exit(f"claude-sdk-run: no key found in {path}")
-    return key, workspace
+    return key, workspace or os.environ.get("ANTHROPIC_WORKSPACE_ID") or None
 
 
 def clean_environment(key: str, workspace: str | None) -> None:
@@ -154,6 +154,10 @@ async def run(a: argparse.Namespace) -> int:
 
 
 def main(argv: list[str]) -> int:
+    # Windows pipes default to the ANSI code page; prompts and results are UTF-8 (a leading BOM is dropped).
+    sys.stdin.reconfigure(encoding="utf-8-sig")
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     a = parse_args(argv)
     key, workspace = read_env_file(Path(os.environ.get("CLAUDE_API_ENV_FILE") or HERE / ".env.claude"))
     clean_environment(key, workspace)

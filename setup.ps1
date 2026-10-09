@@ -88,10 +88,17 @@ if ($NoSdk) { Write-Output 'Agent SDK setup skipped.' } else {
     if (Test-Path -LiteralPath $venvPy) { Write-Output 'Agent SDK environment already exists (.venv).' }
     elseif (-not $py) { Write-Output 'Python 3.10+ not found: skipping claude-sdk-run setup (install Python, then rerun setup).' }
     else {
-        & $py.Source -m venv (Join-Path $PSScriptRoot '.venv')
-        & $venvPy -m pip install --quiet --disable-pip-version-check -r (Join-Path $PSScriptRoot 'requirements-sdk.txt')
-        if ($LASTEXITCODE -eq 0) { Write-Output 'Installed the Claude Agent SDK into .venv (for claude-sdk-run).' }
-        else { Write-Output 'Agent SDK install failed; claude-api-run still works.' }
+        # The Microsoft Store "python" alias exists but fails, so check the version before creating .venv.
+        & $py.Source -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' 2>$null
+        if ($LASTEXITCODE -ne 0) { Write-Output 'Python 3.10+ not found: skipping claude-sdk-run setup (install Python from python.org, then rerun setup).' }
+        else {
+            & $py.Source -m venv (Join-Path $PSScriptRoot '.venv')
+            if (Test-Path -LiteralPath $venvPy) {
+                & $venvPy -m pip install --quiet --disable-pip-version-check -r (Join-Path $PSScriptRoot 'requirements-sdk.txt')
+            }
+            if ((Test-Path -LiteralPath $venvPy) -and $LASTEXITCODE -eq 0) { Write-Output 'Installed the Claude Agent SDK into .venv (for claude-sdk-run).' }
+            else { Write-Output 'Agent SDK install failed; claude-api-run still works. Delete .venv and rerun setup to retry.' }
+        }
     }
 }
 
@@ -102,7 +109,7 @@ if ($NoCheck) { Write-Output 'Online checks skipped.' } else {
 }
 Write-Output ''
 Write-Output 'Next: open a NEW terminal, go to your project folder, and type one of:'
-Write-Output '  claude-sdk-run --prompt "Say hi" --max-budget-usd 1  (headless via Agent SDK; promotional API credits apply)'
-Write-Output '  claude-api-run -Prompt "Say hi" -MaxBudgetUsd 1   (headless via Claude Code CLI; Max/Team API credits apply)'
-Write-Output '  claude-api --continue                              (continue your chat; uses credit you bought)'
+Write-Output '  claude-sdk-run --prompt "Say hi" --max-budget-usd 1  (headless via Agent SDK; Max/Team API credits apply)'
+Write-Output '  claude-api-run -Prompt "Say hi" -MaxBudgetUsd 1      (headless via Claude Code CLI; may need credit you bought)'
+Write-Output '  claude-api --continue                                (continue your chat; uses credit you bought)'
 exit $code

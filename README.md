@@ -2,9 +2,9 @@
 
 **Run Claude Code on your own Anthropic API key, per terminal, without logging out of your subscription.**
 
-- 🎁 **Spend your Claude Max or Team monthly API credits** ($100–$500) on headless Claude Code runs, with a hard spending cap.
+- 🎁 **Spend your Claude Max or Team monthly API credits** ($100–$500) on headless Claude Code agents, with a hard spending cap.
 - 🔁 **Hit your usage limit?** Keep the same conversation going on your API key with `claude-api --continue`.
-- 🪟 Windows (PowerShell, cmd, Git Bash), macOS and Linux. No install, just a few small scripts.
+- 🪟 Windows (PowerShell, cmd, Git Bash), macOS and Linux. Small scripts, no install. Python 3.10+ is needed only for `claude-sdk-run`.
 
 Your normal `claude` command and the desktop app keep using your subscription.
 
@@ -14,11 +14,11 @@ Your normal `claude` command and the desktop app keep using your subscription.
 
 | Your situation | Best option |
 |---|---|
-| You have **Max or Team** and want to use the **monthly API credits** | ✅ `claude-api-run` (this repo) |
+| You have **Max or Team** and want to use the **monthly API credits** | ✅ `claude-sdk-run` (this repo) |
 | You hit your limit and have **prepaid Console credit or a company API key** | ✅ `claude-api` (this repo) |
 | You hit your limit and just want the simplest fix | Claude Code's built-in **`/usage-credits`**. No repo needed. |
 
-> ⚠️ **Max/Team API credits do NOT cover interactive Claude Code.** They cover headless `claude -p` runs, which is what `claude-api-run` does. Interactive `claude-api` is charged to credit you **bought** in the Console. [Details below](#-using-your-max-or-team-api-credits).
+> ⚠️ **Max/Team API credits do NOT cover interactive Claude Code.** They cover the **Agent SDK**, which is what `claude-sdk-run` uses. Interactive `claude-api` is charged to credit you **bought** in the Console. [Details below](#-using-your-max-or-team-api-credits).
 
 ---
 
@@ -27,6 +27,7 @@ Your normal `claude` command and the desktop app keep using your subscription.
 - [Claude Code](https://code.claude.com/docs) installed (the `claude` command works)
 - An API key from the [Claude Console](https://platform.claude.com) → **API Keys**
 - Credit on that Console account: your Max/Team monthly credits, or credit you bought (**Settings → Billing**)
+- For `claude-sdk-run` only: [Python 3.10+](https://www.python.org/downloads/)
 
 ---
 
@@ -41,6 +42,7 @@ Your normal `claude` command and the desktop app keep using your subscription.
    - ask for your key (hidden while you paste it)
    - save it to a private `.env.claude` file
    - add the folder to your PATH
+   - install the Agent SDK for `claude-sdk-run` (only if Python 3.10+ is installed)
    - check that everything works
 3. **Open a new terminal.** Done.
 
@@ -54,8 +56,11 @@ git clone https://github.com/2600th/claude-code-api-key-switch.git ~/claude-api
 cd ~/claude-api
 cp .env.claude.example .env.claude      # then open .env.claude and paste your key
 chmod 600 .env.claude                   # only you can read it
-chmod +x claude-api claude-api-run claude-api-check
+chmod +x claude-api claude-api-run claude-api-check claude-sdk-run
 echo 'export PATH="$PATH:$HOME/claude-api"' >> ~/.bashrc   # or ~/.zshrc
+
+# Only for claude-sdk-run:
+python3 -m venv .venv && .venv/bin/pip install -r requirements-sdk.txt
 ```
 Open a new terminal, then check it:
 ```bash
@@ -71,7 +76,8 @@ claude-api-check --online
    ```powershell
    [Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path','User') + ';' + (Get-Location).Path, 'User')
    ```
-3. Open a new terminal and run `claude-api-check -Online`.
+3. Only for `claude-sdk-run`: `python -m venv .venv` then `.venv\Scripts\pip install -r requirements-sdk.txt`
+4. Open a new terminal and run `claude-api-check -Online`.
 </details>
 
 ---
@@ -90,34 +96,77 @@ Since October 2026, Max and Team plans include monthly credits for the Claude AP
 1. On [claude.ai](https://claude.ai) in a browser: **Settings → Billing → API credits**.
 2. **Link** a Console organization. You can't change it later without contacting support.
 3. In that organization, create an API key. **Use that key in setup.**
+4. Check what they cover: Console → **Settings → Billing → Promotional credits → "Applies to"**.
 
 **What the credits pay for:**
 
 | Command | Paid by the credits? |
 |---|---|
-| `claude-sdk-run` (headless, Agent SDK) | ✅ Yes, also covers **promotional credits** that list "Agent SDK" |
-| `claude-api-run` (headless `claude -p`) | ✅ Yes |
-| `claude-api` (interactive chat) | ❌ No. Uses credit you bought. |
+| `claude-sdk-run` (Agent SDK) | ✅ **Yes.** Billed as Agent SDK. |
+| `claude-api-run` (Claude Code CLI, `claude -p`) | ⚠️ **Not always.** Anthropic's docs say `claude -p` from a normal terminal is covered, but runs can be billed as Claude Code. Got `Credit balance is too low`? Use `claude-sdk-run`. |
+| `claude-api` (interactive chat) | ❌ **No.** Uses credit you bought. |
 
 - Credits **expire each month**. No rollover.
 - When they run out, requests stop. You are **never** charged on your Claude plan.
-- Start `claude-api-run` from a **normal terminal**. Anthropic counts `-p` runs started by an IDE extension, the desktop app or the GitHub Action as Claude Code, which the credits don't cover.
+- Anthropic counts runs started by an IDE extension, the desktop app or the GitHub Action as Claude Code, which the credits don't cover.
 
 📖 Official details: [API credits for Max and Team plans](https://platform.claude.com/docs/en/about-claude/api-credits-for-subscribers)
 
 ---
 
-## 🤖 Headless runs: `claude-api-run`
+## 🤖 Headless runs
 
-Gives Claude **one task, with no chat window**, then stops. Good for scripts, batch jobs, or handing work to a "subagent".
+Give Claude **one task, with no chat window**, and it stops when done. Good for scripts, batch jobs, or handing work to a "subagent". Two runners do this:
+
+| | `claude-sdk-run` ⭐ | `claude-api-run` |
+|---|---|---|
+| Runs through | Claude Agent SDK (Python) | Claude Code CLI (`claude -p`) |
+| Max/Team credits | ✅ Yes | ⚠️ Not always |
+| Start-up cost (1-word Haiku reply) | ~$0.03 | ~$0.08 |
+| Needs | Python 3.10+ (setup installs the SDK) | Nothing extra |
+
+Both have the same safety features:
+- 🛑 **A hard spending cap.** Default: $5.
+- 🧪 **A dry run** that shows what would run and spends nothing.
+
+### `claude-sdk-run` (recommended for Max/Team credits)
+
+```powershell
+claude-sdk-run --prompt-file task.md --out result.md --max-budget-usd 3
+claude-sdk-run --prompt "Say hi" --dry-run                  # spends nothing
+claude-sdk-run --prompt "..." --json --out result.json      # includes cost and session ID
+```
+
+<details>
+<summary><b>All options</b></summary>
+
+| Option | What it does | Default |
+|---|---|---|
+| `--prompt "..."` / `--prompt-file task.md` / stdin | The task | — |
+| `--out result.md` | Save the answer to a file | print it |
+| `--model` | Full model ID | `claude-sonnet-5-5` |
+| `--effort` | `low`, `medium`, `high`, `xhigh`, `max` | model default |
+| `--max-budget-usd` | Spending cap in USD | `5` |
+| `--max-turns` | Max steps | `40` |
+| `--permission-mode` | What Claude may do without asking | `acceptEdits` |
+| `--cwd C:\repo` | Folder to work in | current folder |
+| `--add-dir` | Extra folder Claude may use (repeatable) | — |
+| `--allowed-tools a,b` | Tools allowed without asking | — |
+| `--append-system-prompt` | Extra instructions | — |
+| `--setting-sources` | Which CLAUDE.md/settings to load: `user,project,local` or `none` | `project,local` |
+| `--json` | JSON output (result, cost, session ID, usage) | text |
+| `--verbose` | Show progress while it runs | off |
+| `--dry-run` | Show the settings, spend nothing | off |
+
+- It starts Claude with a clean environment: Claude/Anthropic variables from the session that launched it are not passed on.
+- Exit code: `0` on success, `1` on an error result.
+</details>
+
+### `claude-api-run` (Claude Code CLI)
 
 ```powershell
 claude-api-run -PromptFile task.md -OutFile result.md -MaxBudgetUsd 3
 ```
-
-- 🛑 **`-MaxBudgetUsd` is a hard spending cap.** Default: $5.
-- 🧪 Test first with `-DryRun`. It shows what would run and spends nothing.
-- 📄 Write the task in `task.md`, and read the answer in `result.md`.
 
 <details>
 <summary><b>All options</b></summary>
@@ -128,12 +177,12 @@ claude-api-run -PromptFile task.md -OutFile result.md -MaxBudgetUsd 3
 | `-PromptFile task.md` | `< task.md` | The task, from a file | — |
 | `-OutFile result.md` | `-o result.md` | Save the answer to a file | print it |
 | `-Model` | `-m` | Full model ID | `claude-sonnet-5-5` |
+| `-Effort` | `-e` | `low`, `medium`, `high`, `xhigh`, `max` | CLI default |
 | `-MaxBudgetUsd` | `-b` | Spending cap in USD | `5` |
 | `-MaxTurns` | `-t` | Max steps | `40` |
 | `-PermissionMode` | `-p` | What Claude may do without asking | `acceptEdits` |
 | `-Cwd C:\repo` | `-C /c/repo` | Folder to work in | current folder |
 | `-Json` | `-j` | JSON output (includes cost and session ID) | text |
-| `-Effort` | `-e` | Reasoning effort: `low`, `medium`, `high`, `xhigh`, `max` | CLI default |
 | `-Bare` | `-B` | Skip CLAUDE.md, hooks and plugins (cheaper start) | off |
 | `-AddDir`, `-AllowedTools`, `-AppendSystemPrompt` | — | Passed to `claude` | — |
 | `-DryRun` | — | Show the command, spend nothing | off |
@@ -143,36 +192,18 @@ Bash example:
 claude-api-run -m claude-sonnet-5-5 -b 3 -o result.md < task.md
 ```
 
-- Use `-PermissionMode bypassPermissions` **only** in a sandbox. It lets Claude do anything without asking.
 - The exit code is Claude's own exit code.
 - To reopen a headless run as a chat: `claude-api --resume <session ID from the JSON>`.
 </details>
 
 <details>
-<summary><b>Cost tips</b></summary>
+<summary><b>Cost and safety tips</b></summary>
 
-- **Every new run has a start-up cost.** Claude Code loads its system prompt and tools first. Even a one-word answer on Haiku cost about **$0.08**.
-- So **budgets under ~$0.25 can stop a run before it answers.**
-- `-Bare` cuts the start-up cost. Put all the context the task needs in the prompt.
+- **Every new run has a start-up cost.** Claude loads its system prompt and tools first, so **budgets under ~$0.25 can stop a run before it answers.**
+- `claude-api-run -Bare` or `claude-sdk-run --setting-sources none` cut the start-up cost. Put all the context the task needs in the prompt.
 - **Use full model IDs**: `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-4-5-20251001`. Short names like `haiku` can point to older models.
+- Use the `bypassPermissions` permission mode **only** in a sandbox. It lets Claude do anything without asking.
 </details>
-
----
-
-## 🧩 Headless runs on promotional credits: `claude-sdk-run`
-
-Some promotional API credits cover **"Agent SDK, API, Batch API, Playground"** but **not "Claude Code"**. Check Console → Billing → Promotional credits → "Applies to". `claude-api-run` drives the Claude Code CLI, so those credits don't cover it and you get "Credit balance is too low". `claude-sdk-run` runs the same tools through the official **Claude Agent SDK**, which bills as Agent SDK. It also works when you start it from inside an IDE or the desktop app, because it removes inherited session variables first.
-
-```powershell
-claude-sdk-run --prompt-file task.md --out result.md --model claude-opus-5-5 --effort high --max-budget-usd 3 --cwd C:\repo
-claude-sdk-run --prompt "..." --json --out result.json     # result, cost, session id, usage
-claude-sdk-run --prompt "..." --dry-run                     # spends nothing
-```
-
-- **Setup:** `setup.cmd` creates `.venv` with `claude-agent-sdk` (pinned in `requirements-sdk.txt`). It needs Python 3.10+, and `-NoSdk` skips it. To do it by hand: `python -m venv .venv` then `.venv\Scripts\pip install -r requirements-sdk.txt`.
-- **Options:** `--model`, `--effort`, `--max-budget-usd` (default 5), `--max-turns` (40), `--permission-mode` (acceptEdits), `--cwd`, `--add-dir` (repeatable), `--allowed-tools a,b`, `--append-system-prompt`, `--setting-sources` (default `project,local`; `user,project,local` or `none`), `--json`, `--verbose` (streams progress to stderr), `--dry-run`.
-- **Cost:** measured 2026-10-09, a one-turn Haiku run cost **$0.032**, against $0.082 through `claude-api-run`.
-- The exit code is 0 on success and 1 on an error result.
 
 ---
 
@@ -212,7 +243,7 @@ Type `/status` inside Claude Code to see which login is active.
 - Your key lives in **one file**: `.env.claude`, in this folder.
 - **Git ignores it**, so it can't be committed by accident.
 - The scripts **never print it**, not even in error messages.
-- The key goes only to the one `claude` process the script starts. Nothing else on your computer sees it.
+- The key goes only to the Claude process the script starts. Nothing else on your computer sees it.
 
 > 🚫 Never paste your key into a chat, an issue, or a screenshot. If it leaks, delete it in the Console and make a new one.
 
@@ -225,8 +256,10 @@ Type `/status` inside Claude Code to see which login is active.
 | `key file not found` | Run `setup.cmd`, or copy `.env.claude.example` to `.env.claude` and add your key. |
 | `'claude-api' is not recognized` | Open a **new** terminal. Still broken? The folder isn't on your PATH. Run `setup.cmd` again. |
 | `running scripts is disabled on this system` | Run `setup.cmd` once. It allows local scripts for your user. |
-| `Credit balance too low` in `claude-api` | Normal if your Console only has Max/Team credits: they don't cover interactive Claude Code. Buy credit (Console → **Settings → Billing**), or use `claude-api-run`. |
-| `Credit balance is too low` in `claude-api-run` | This month's credits are used up. Wait for next month, or buy credit. |
+| `claude-sdk-run: run setup first` | Install [Python 3.10+](https://www.python.org/downloads/), then run `setup.cmd` again. |
+| `Credit balance too low` in `claude-api` | Normal if your Console only has Max/Team credits: they don't cover interactive Claude Code. Buy credit (Console → **Settings → Billing**), or use `claude-sdk-run`. |
+| `Credit balance is too low` in `claude-api-run` | Your credits may not cover the Claude Code CLI. Use `claude-sdk-run` instead. |
+| `Credit balance is too low` in `claude-sdk-run` | This month's credits are used up. Wait for next month, or buy credit. |
 | `HTTP 400` with a key starting `sk-ant-usr` | This key type needs a workspace ID. Add `ANTHROPIC_WORKSPACE_ID=wrkspc_...` to `.env.claude`. Find it at Console → **Settings → Workspaces**. |
 | `HTTP 401` | The key is wrong or deleted. Make a new one in the Console. |
 | `/status` still shows your subscription | You answered **No** to "use this API key?". Inside `claude-api`, type `/config` and turn on **Use custom API key**. |
@@ -260,13 +293,14 @@ No. Conversations are saved on your computer, so `claude-api --continue` picks u
 | File | What it is |
 |---|---|
 | `setup.cmd` | **Start here (Windows).** Double-click to set up. |
-| `claude-sdk-run` | Headless runs through the Agent SDK. Promotional credits that list "Agent SDK" apply. Needs `.venv` from setup. |
-| `claude_sdk_run.py`, `requirements-sdk.txt` | The Agent SDK runner and its pinned dependency. |
-| `claude-api-run` | Headless runs with a spending cap. Max/Team credits apply. |
+| `claude-sdk-run` | Headless runs through the Agent SDK. Max/Team credits apply. |
+| `claude-api-run` | Headless runs through the Claude Code CLI. |
 | `claude-api` | Interactive Claude Code on your API key. |
 | `claude-api-check` | Check your key and setup. |
 | `.env.claude.example` | Template for your key file. |
 | `.env.claude` | 🔒 **Your key.** Created by setup. Private. |
+| `claude_sdk_run.py`, `requirements-sdk.txt` | The Agent SDK runner and its pinned package. |
+| `.venv` | Python environment for `claude-sdk-run`. Created by setup. |
 | `lib.ps1`, `lib.sh` | Shared code the other scripts use. |
 | `LICENSE` | MIT: free to use, change and share. |
 
