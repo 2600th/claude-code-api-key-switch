@@ -247,6 +247,7 @@ No. Conversations are saved on your computer, so `claude-api --continue` picks u
 | `.env.claude.example` | Template for your key file. |
 | `.env.claude` | 🔒 **Your key.** Created by setup. Private. |
 | `lib.ps1`, `lib.sh` | Shared code the other scripts use. |
+| `LICENSE` | MIT: free to use, change and share. |
 
 Each command comes in three forms: `.ps1` (PowerShell), `.cmd` (cmd) and no extension (bash). Just type the name and the right one runs.
 
@@ -259,4 +260,4 @@ Each command comes in three forms: `.ps1` (PowerShell), `.cmd` (cmd) and no exte
 
 ---
 
-<sub>Not affiliated with Anthropic. "Claude" and "Claude Code" are Anthropic's trademarks. Plans, credits and prices change, so check the linked Anthropic pages for the latest.</sub>
+<sub>[MIT License](LICENSE). Not affiliated with Anthropic. "Claude" and "Claude Code" are Anthropic's trademarks. Plans, credits and prices change, so check the linked Anthropic pages for the latest.</sub>
