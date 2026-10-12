@@ -153,6 +153,8 @@ claude-sdk-run --resume <session-id> --prompt "Write the result now." --out resu
 | `--cwd C:\repo` | Folder to work in | current folder |
 | `--add-dir` | Extra folder Claude may use (repeatable) | — |
 | `--allowed-tools a,b` | Tools allowed without asking | — |
+| `--disallowed-tools a,b` | Tools or rules it may never use, even in `bypassPermissions`, e.g. `Bash(git push:*)` | — |
+| `--log run.log` | Append a live progress log (tool calls, text, result) to watch a long run | off |
 | `--append-system-prompt` | Extra instructions | — |
 | `--setting-sources` | Which CLAUDE.md/settings to load: `user,project,local` or `none` | `project,local` |
 | `--json` | JSON output (result, cost, session ID, usage) | text |
@@ -164,6 +166,7 @@ claude-sdk-run --resume <session-id> --prompt "Write the result now." --out resu
 - It starts Claude with a clean environment: Claude/Anthropic variables from the session that launched it are not passed on.
 - Exit code: `0` on success, `1` on an error result.
 - Every run prints its session ID, including when it stops at `--max-turns` or the budget cap. Pass it to `--resume` to finish the work instead of paying to start over. Use the same `--cwd` as the first run.
+- 🧵 **Running several agents at once:** give each its own `--cwd` (e.g. a separate git worktree), `--log` and `--out`, and block the commands no agent should run with `--disallowed-tools`, e.g. `Bash(git push:*),Bash(git checkout:*),Bash(git reset:*)`.
 </details>
 
 ### `claude-api-run` (Claude Code CLI)

@@ -19,6 +19,7 @@ import asyncio
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -77,6 +78,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--cwd", default=os.getcwd())
     p.add_argument("--add-dir", action="append", default=[])
     p.add_argument("--allowed-tools", help="comma-separated tool names auto-allowed without prompting")
+    p.add_argument("--disallowed-tools", help="comma-separated tool names or rules the run may never use, e.g. 'Bash(git push:*)'")
+    p.add_argument("--log", help="append a live progress log (assistant text, tool calls, result) to this file")
     p.add_argument("--append-system-prompt")
     p.add_argument("--setting-sources", default="project,local",
                    help="which CLAUDE.md/settings to load: comma list of user,project,local, or 'none'")
@@ -100,7 +103,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 async def run(a: argparse.Namespace) -> int:
-    from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, ResultMessage, SystemMessage, TextBlock, query
+    from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions, ResultMessage, SystemMessage, TextBlock,
+                                  ToolUseBlock, query)
+
+    log = open(a.log, "a", encoding="utf-8", buffering=1) if a.log else None
+
+    def note(kind: str, text: str) -> None:
+        if log:
+            stamp = time.strftime("%H:%M:%S")
+            log.write(f"[{stamp}] {kind}: {text}\n")
 
     system_prompt: dict = {"type": "preset", "preset": "claude_code"}
     if a.append_system_prompt:
@@ -115,6 +126,7 @@ async def run(a: argparse.Namespace) -> int:
         cwd=a.cwd,
         add_dirs=a.add_dir,
         allowed_tools=[t.strip() for t in a.allowed_tools.split(",")] if a.allowed_tools else [],
+        disallowed_tools=[t.strip() for t in a.disallowed_tools.split(",")] if a.disallowed_tools else [],
         system_prompt=system_prompt,
         setting_sources=sources,
         resume=a.resume,
@@ -124,7 +136,7 @@ async def run(a: argparse.Namespace) -> int:
     if a.dry_run:
         print(f"would run in {a.cwd}: model={a.model} effort={a.effort} budget=${a.max_budget_usd} "
               f"turns={a.max_turns} mode={a.permission_mode} settings={sources or 'none'} add_dirs={a.add_dir} "
-              f"resume={a.resume or 'no'}")
+              f"resume={a.resume or 'no'} disallowed={a.disallowed_tools or 'none'} log={a.log or 'none'}")
         print(f"prompt: {len(a.text)} chars; key set: {bool(os.environ.get('ANTHROPIC_API_KEY'))}; "
               f"workspace header: {bool(os.environ.get('ANTHROPIC_CUSTOM_HEADERS'))}")
         return 0
@@ -135,15 +147,23 @@ async def run(a: argparse.Namespace) -> int:
         async for message in query(prompt=a.text, options=options):
             if isinstance(message, SystemMessage) and message.subtype == "init":
                 session = message.data.get("session_id") or session
-            elif isinstance(message, AssistantMessage) and a.verbose:
+                note("session", str(session))
+            elif isinstance(message, AssistantMessage):
                 for block in message.content:
                     if isinstance(block, TextBlock):
-                        print(block.text, file=sys.stderr, flush=True)
+                        if a.verbose:
+                            print(block.text, file=sys.stderr, flush=True)
+                        note("text", block.text.strip().replace("\n", " ")[:600])
+                    elif isinstance(block, ToolUseBlock):
+                        detail = json.dumps(block.input, ensure_ascii=False)
+                        note("tool", f"{block.name} {detail[:300]}")
             elif isinstance(message, ResultMessage):
                 result = message
+                note("result", f"{message.subtype} turns={message.num_turns} cost={message.total_cost_usd}")
     except Exception as exc:  # turn/budget caps surface as an exception after (or instead of) the result
         if result is None:
             print(f"claude-sdk-run: {type(exc).__name__}: {exc}", file=sys.stderr)
+            note("error", f"{type(exc).__name__}: {exc} (session {session or 'none'})")
             if session:
                 print(f"claude-sdk-run: session {session} (continue with --resume {session})", file=sys.stderr)
             else:
