@@ -201,9 +201,9 @@ async def run(a: argparse.Namespace) -> int:
         save_status(state="error", session=session, error="no result message received")
         return 1
     text = (result.result or "").lower()
-    state = "success" if not result.is_error else result.subtype or "error"
-    if result.is_error and "credit balance" in text:
-        state = "credit"
+    # An out-of-credit API reply can arrive as a non-error result whose whole text is the credit message.
+    credit = "credit balance" in text and (result.is_error or text.strip().startswith("credit balance is too low"))
+    state = "credit" if credit else ("success" if not result.is_error else result.subtype or "error")
     save_status(state=state, session=result.session_id or session, subtype=result.subtype,
                 cost_usd=result.total_cost_usd, turns=result.num_turns)
 
@@ -223,7 +223,7 @@ async def run(a: argparse.Namespace) -> int:
     cost = f"${result.total_cost_usd:.4f}" if result.total_cost_usd is not None else "n/a"
     print(f"claude-sdk-run: {result.subtype}, {result.num_turns} turns, cost {cost}, session {result.session_id}",
           file=sys.stderr)
-    return 1 if result.is_error else 0
+    return 1 if (result.is_error or credit) else 0
 
 
 def main(argv: list[str]) -> int:
