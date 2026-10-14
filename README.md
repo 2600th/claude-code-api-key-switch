@@ -156,6 +156,7 @@ claude-sdk-run --resume <session-id> --prompt "Write the result now." --out resu
 | `--disallowed-tools a,b` | Tools or rules it may never use, even in `bypassPermissions`, e.g. `Bash(git push:*)` | — |
 | `--log run.log` | Append a live progress log (tool calls, text, result) to watch a long run | off |
 | `--status-file st.json` | Keep a JSON status (state, session id, cost) from start to exit, so a killed, capped or out-of-credit run can always be resumed. States: `running`, `success`, `error_max_turns`, `error_max_budget_usd`, `credit`, `error` | off |
+| `--compact-pct N` | Auto-compact when the context reaches N% of the window. The engine auto-compacts by default near the window limit; a lower N cuts the per-turn cost of long runs. Compactions are logged and counted in the status file | engine default |
 | `--append-system-prompt` | Extra instructions | — |
 | `--setting-sources` | Which CLAUDE.md/settings to load: `user,project,local` or `none` | `project,local` |
 | `--json` | JSON output (result, cost, session ID, usage) | text |

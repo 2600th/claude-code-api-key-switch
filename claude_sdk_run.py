@@ -80,6 +80,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--allowed-tools", help="comma-separated tool names auto-allowed without prompting")
     p.add_argument("--disallowed-tools", help="comma-separated tool names or rules the run may never use, e.g. 'Bash(git push:*)'")
     p.add_argument("--log", help="append a live progress log (assistant text, tool calls, result) to this file")
+    p.add_argument("--compact-pct", type=int, metavar="N",
+                   help="auto-compact when context reaches N%% of the window (engine default otherwise); "
+                        "lower values cut the per-turn cost of long runs")
     p.add_argument("--status-file", help="keep a JSON status here (state, session id, cost) from start to exit, "
                                          "so a killed, capped or out-of-credit run can always be resumed")
     p.add_argument("--append-system-prompt")
@@ -155,6 +158,9 @@ async def run(a: argparse.Namespace) -> int:
               f"workspace header: {bool(os.environ.get('ANTHROPIC_CUSTOM_HEADERS'))}")
         return 0
 
+    if a.compact_pct:
+        # The bundled Claude Code engine inherits os.environ and reads this override.
+        os.environ["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"] = str(a.compact_pct)
     result: ResultMessage | None = None
     session = a.resume
     save_status(state="starting")
@@ -164,6 +170,9 @@ async def run(a: argparse.Namespace) -> int:
                 session = message.data.get("session_id") or session
                 note("session", str(session))
                 save_status(state="running", session=session)
+            elif isinstance(message, SystemMessage) and message.subtype == "compact_boundary":
+                note("compact", json.dumps(message.data.get("compact_metadata") or message.data, ensure_ascii=False)[:300])
+                save_status(compactions=status.get("compactions", 0) + 1)
             elif isinstance(message, AssistantMessage):
                 for block in message.content:
                     if isinstance(block, TextBlock):
