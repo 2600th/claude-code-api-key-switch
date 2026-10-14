@@ -80,6 +80,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--allowed-tools", help="comma-separated tool names auto-allowed without prompting")
     p.add_argument("--disallowed-tools", help="comma-separated tool names or rules the run may never use, e.g. 'Bash(git push:*)'")
     p.add_argument("--log", help="append a live progress log (assistant text, tool calls, result) to this file")
+    p.add_argument("--status-file", help="keep a JSON status here (state, session id, cost) from start to exit, "
+                                         "so a killed, capped or out-of-credit run can always be resumed")
     p.add_argument("--append-system-prompt")
     p.add_argument("--setting-sources", default="project,local",
                    help="which CLAUDE.md/settings to load: comma list of user,project,local, or 'none'")
@@ -113,6 +115,18 @@ async def run(a: argparse.Namespace) -> int:
             stamp = time.strftime("%H:%M:%S")
             log.write(f"[{stamp}] {kind}: {text}\n")
 
+    status: dict = {"state": "starting", "session": a.resume, "pid": os.getpid(), "cwd": a.cwd, "model": a.model,
+                    "effort": a.effort, "started": time.strftime("%Y-%m-%dT%H:%M:%S"), "resumed_from": a.resume}
+
+    def save_status(**fields) -> None:
+        # state: running | success | error_max_turns | error_max_budget_usd | credit | error
+        if not a.status_file:
+            return
+        status.update(fields, updated=time.strftime("%Y-%m-%dT%H:%M:%S"))
+        tmp = Path(a.status_file + ".tmp")
+        tmp.write_text(json.dumps(status, indent=2), encoding="utf-8")
+        os.replace(tmp, a.status_file)
+
     system_prompt: dict = {"type": "preset", "preset": "claude_code"}
     if a.append_system_prompt:
         system_prompt["append"] = a.append_system_prompt
@@ -143,11 +157,13 @@ async def run(a: argparse.Namespace) -> int:
 
     result: ResultMessage | None = None
     session = a.resume
+    save_status(state="starting")
     try:
         async for message in query(prompt=a.text, options=options):
             if isinstance(message, SystemMessage) and message.subtype == "init":
                 session = message.data.get("session_id") or session
                 note("session", str(session))
+                save_status(state="running", session=session)
             elif isinstance(message, AssistantMessage):
                 for block in message.content:
                     if isinstance(block, TextBlock):
@@ -164,6 +180,8 @@ async def run(a: argparse.Namespace) -> int:
         if result is None:
             print(f"claude-sdk-run: {type(exc).__name__}: {exc}", file=sys.stderr)
             note("error", f"{type(exc).__name__}: {exc} (session {session or 'none'})")
+            credit = "credit balance" in str(exc).lower()
+            save_status(state="credit" if credit else "error", session=session, error=f"{type(exc).__name__}: {exc}"[:500])
             if session:
                 print(f"claude-sdk-run: session {session} (continue with --resume {session})", file=sys.stderr)
             else:
@@ -171,7 +189,14 @@ async def run(a: argparse.Namespace) -> int:
             return 1
     if result is None:
         print(f"claude-sdk-run: no result message received; session {session or 'none'}", file=sys.stderr)
+        save_status(state="error", session=session, error="no result message received")
         return 1
+    text = (result.result or "").lower()
+    state = "success" if not result.is_error else result.subtype or "error"
+    if result.is_error and "credit balance" in text:
+        state = "credit"
+    save_status(state=state, session=result.session_id or session, subtype=result.subtype,
+                cost_usd=result.total_cost_usd, turns=result.num_turns)
 
     if a.json:
         body = json.dumps({
