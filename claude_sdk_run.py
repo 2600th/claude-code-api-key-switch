@@ -189,7 +189,7 @@ async def run(a: argparse.Namespace) -> int:
         if result is None:
             print(f"claude-sdk-run: {type(exc).__name__}: {exc}", file=sys.stderr)
             note("error", f"{type(exc).__name__}: {exc} (session {session or 'none'})")
-            credit = "credit balance" in str(exc).lower()
+            credit = is_credit_limit(str(exc).lower())
             save_status(state="credit" if credit else "error", session=session, error=f"{type(exc).__name__}: {exc}"[:500])
             if session:
                 print(f"claude-sdk-run: session {session} (continue with --resume {session})", file=sys.stderr)
@@ -201,8 +201,8 @@ async def run(a: argparse.Namespace) -> int:
         save_status(state="error", session=session, error="no result message received")
         return 1
     text = (result.result or "").lower()
-    # An out-of-credit API reply can arrive as a non-error result whose whole text is the credit message.
-    credit = "credit balance" in text and (result.is_error or text.strip().startswith("credit balance is too low"))
+    # An out-of-credit or spend-limit API reply can arrive as a non-error result whose whole text is that message.
+    credit = is_credit_limit(text) and (result.is_error or text.strip().startswith(("credit balance is too low", "api error: 400")))
     state = "credit" if credit else ("success" if not result.is_error else result.subtype or "error")
     save_status(state=state, session=result.session_id or session, subtype=result.subtype,
                 cost_usd=result.total_cost_usd, turns=result.num_turns)
@@ -224,6 +224,11 @@ async def run(a: argparse.Namespace) -> int:
     print(f"claude-sdk-run: {result.subtype}, {result.num_turns} turns, cost {cost}, session {result.session_id}",
           file=sys.stderr)
     return 1 if (result.is_error or credit) else 0
+
+
+def is_credit_limit(text: str) -> bool:
+    """True for out-of-credit and workspace spend-limit replies (both need an owner action, not a resume)."""
+    return "credit balance" in text or "reached your specified api usage limits" in text
 
 
 def main(argv: list[str]) -> int:
